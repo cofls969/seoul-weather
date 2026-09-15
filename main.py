@@ -1,35 +1,12 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import numpy as np
 
 st.set_page_config(
     page_title="서울 기온 변화 (100년)",
     page_icon="🌡️",
     layout="wide"
 )
-
-import matplotlib.font_manager as fm
-import os
-
-@st.cache_resource
-def set_korean_font():
-    """Streamlit Cloud 등 Linux 환경에서 한글 폰트(NanumGothic)를 설정합니다."""
-    # 시스템에 설치된 폰트 중 나눔 폰트 찾기
-    font_list = fm.findSystemFonts(fontpaths=None, fontext='ttf')
-    nanum_fonts = [f for f in font_list if 'Nanum' in f]
-    
-    if nanum_fonts:
-        # 나눔 폰트가 있으면 첫 번째 폰트를 사용
-        font_path = nanum_fonts[0]
-        font_name = fm.FontProperties(fname=font_path).get_name()
-        plt.rc('font', family=font_name)
-    else:
-        # 폰트가 없을 경우 기본 폰트 사용 시도 (경고 메시지 출력 안 함)
-        pass
-    
-    plt.rcParams['axes.unicode_minus'] = False # 마이너스 기호 깨짐 방지
-
-set_korean_font()
 
 @st.cache_data
 def load_data(url):
@@ -95,9 +72,6 @@ def main():
         df = load_data(data_url)
 
     if df is not None:
-        # 1923년(현재 연도 기준 약 100년 전)부터의 데이터만 필터링 (데이터에 따라 조정 가능)
-        # 여기서는 전체 데이터 중 최근 100년에 가까운 의미를 갖도록 그룹화합니다.
-        
         # 연도별로 그룹화하여 평균 기온 계산
         yearly_temp = df.groupby('연도')['평균기온(℃)'].mean().reset_index()
         
@@ -105,29 +79,14 @@ def main():
         if not yearly_temp.empty:
             st.subheader("📈 연평균 기온 변화 그래프")
             
-            # Matplotlib를 사용하여 그래프 생성
-            fig, ax = plt.subplots(figsize=(12, 6))
-            
-            # 선 그래프 그리기
-            ax.plot(yearly_temp['연도'], yearly_temp['평균기온(℃)'], 
-                    color='tomato', linewidth=2, marker='o', markersize=4, label='연평균 기온')
-            
-            # 추세선 (선택 사항 - 데이터의 전반적인 방향을 보여줌)
-            import numpy as np
+            # 추세선 계산
             z = np.polyfit(yearly_temp['연도'], yearly_temp['평균기온(℃)'], 1)
             p = np.poly1d(z)
-            ax.plot(yearly_temp['연도'], p(yearly_temp['연도']), 
-                    color='gray', linestyle='--', linewidth=1.5, label='추세선')
-
-            # 그래프 꾸미기
-            ax.set_title("서울시 연평균 기온 변화", fontsize=16, fontweight='bold', pad=15)
-            ax.set_xlabel("연도", fontsize=12)
-            ax.set_ylabel("평균기온 (℃)", fontsize=12)
-            ax.grid(True, linestyle='--', alpha=0.7)
-            ax.legend(fontsize=12)
+            yearly_temp['추세선'] = p(yearly_temp['연도'])
             
-            # Streamlit에 그래프 표시
-            st.pyplot(fig)
+            # Streamlit 내장 차트를 사용하여 렌더링 (사용자 브라우저 폰트 사용 -> 한글 안 깨짐)
+            chart_data = yearly_temp.set_index('연도')[['평균기온(℃)', '추세선']]
+            st.line_chart(chart_data, color=["#ff6347", "#808080"])
             
             st.markdown("---")
             st.subheader("💡 데이터 요약")
