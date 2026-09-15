@@ -53,18 +53,35 @@ def load_data(url):
         return None
 
     try:
+        # 데이터프레임의 실제 열 이름 확인용 (디버깅용, 나중에 지워도 됩니다)
+        # st.write("실제 데이터 열 이름:", df.columns.tolist())
+
+        # 열 이름 공백 제거 및 정리
+        df.columns = df.columns.str.strip()
+
+        # 열 이름 매핑 (데이터 파일에 따라 열 이름이 다를 수 있으므로 유연하게 대처)
+        date_col = next((col for col in df.columns if '날짜' in col or '일시' in col), None)
+        temp_col = next((col for col in df.columns if '평균기온' in col), None)
+
+        if date_col is None or temp_col is None:
+            st.error(f"필요한 열을 찾을 수 없습니다. (현재 열: {df.columns.tolist()})")
+            return None
+
         # '날짜' 열을 datetime 타입으로 변환
-        df['날짜'] = pd.to_datetime(df['날짜'], errors='coerce')
+        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
         
         # 결측치가 있는 행 제거
-        df = df.dropna(subset=['날짜', '평균기온(℃)'])
+        df = df.dropna(subset=[date_col, temp_col])
         
         # '연도' 열 추가
-        df['연도'] = df['날짜'].dt.year
+        df['연도'] = df[date_col].dt.year
+        
+        # 통일된 이름으로 열 이름 변경
+        df = df.rename(columns={date_col: '날짜', temp_col: '평균기온(℃)'})
         
         return df
     except Exception as e:
-        st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
+        st.error(f"데이터를 처리하는 중 오류가 발생했습니다: {e}")
         return None
 
 def main():
