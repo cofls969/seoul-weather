@@ -34,11 +34,25 @@ set_korean_font()
 @st.cache_data
 def load_data(url):
     """지정된 URL에서 CSV 데이터를 로드하고 전처리합니다."""
+    encodings_to_try = ['utf-8', 'cp949', 'euc-kr']
+    df = None
+    
+    for encoding in encodings_to_try:
+        try:
+            # CSV 파일 읽기 시도
+            df = pd.read_csv(url, encoding=encoding)
+            break # 성공하면 반복문 탈출
+        except UnicodeDecodeError:
+            continue # 실패하면 다음 인코딩 시도
+        except Exception as e:
+            st.error(f"데이터를 불러오는 중 예상치 못한 오류가 발생했습니다: {e}")
+            return None
+
+    if df is None:
+        st.error("지원되는 인코딩 방식(utf-8, cp949, euc-kr)으로 파일을 읽을 수 없습니다.")
+        return None
+
     try:
-        # CSV 파일 읽기 (인코딩 'cp949' 또는 'euc-kr' 처리, 에러 발생 시 무시)
-        # 웹에 있는 데이터이므로 pandas가 알아서 다운로드하여 읽습니다.
-        df = pd.read_csv(url, encoding='cp949') 
-        
         # '날짜' 열을 datetime 타입으로 변환
         df['날짜'] = pd.to_datetime(df['날짜'], errors='coerce')
         
